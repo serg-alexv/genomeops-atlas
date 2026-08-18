@@ -6,6 +6,11 @@ Object.defineProperty(window, 'scrollTo', {
   writable: true,
 })
 
+Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+  value: vi.fn(),
+  writable: true,
+})
+
 Object.defineProperty(navigator, 'clipboard', {
   value: { writeText: vi.fn().mockResolvedValue(undefined) },
   configurable: true,
