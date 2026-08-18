@@ -1,0 +1,33 @@
+id: gemini
+tool:
+  name: Gemini
+  provider: Google
+category:
+  - literature_triage
+  - multimodal_review
+role: Literature breadth and multimodal second pass
+positioning: Use as an independent discovery or comparison lane, never as the provenance record itself.
+strengths:
+  - broad discovery pass
+  - multimodal review
+  - alternative framing
+weaknesses:
+  - citations and extracted claims must be checked at source
+  - model disagreement is not experimental evidence
+best_used_for:
+  - Expand literature search vocabulary
+  - Review figures with source context
+  - Produce an alternative hypothesis list
+avoid:
+  - Treat generated citations as verified
+  - Resolve biological uncertainty by model vote
+workflow_position:
+  before:
+    - source query and inclusion criteria
+  during:
+    - discovery and independent comparison
+  after:
+    - primary-source verification
+evidence:
+  source: https://ai.google.dev/gemini-api/docs
+  verified_on: 2026-08-18

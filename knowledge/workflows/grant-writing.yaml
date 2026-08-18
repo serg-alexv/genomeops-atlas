@@ -1,0 +1,13 @@
+id: grant-writing
+name: Prepare a grant draft
+task_type: write_grant
+steps:
+  - actor: Human
+    responsibility: Set funder, scope, eligibility, budget boundary, and claims ledger.
+  - actor: GPT reasoning model
+    responsibility: Create argument structure from provided evidence.
+  - actor: Claude review lane
+    responsibility: Improve clarity and challenge overclaiming.
+  - actor: Citation audit
+    responsibility: Check every factual or performance claim against a primary source.
+gate: Human owner approves all submitted text and external actions.

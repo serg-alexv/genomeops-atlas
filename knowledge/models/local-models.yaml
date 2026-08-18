@@ -1,0 +1,32 @@
+id: local-models
+tool:
+  name: Local models
+  provider: user-controlled
+category:
+  - privacy_sensitive_processing
+  - offline_triage
+role: Private-data processing lane
+positioning: Use when the runtime, storage, and network boundary are actually controlled and verified.
+strengths:
+  - can keep data on controlled hardware
+  - customizable runtime
+  - useful for repetitive local triage
+weaknesses:
+  - local does not automatically mean private
+  - capability and provenance vary by model and runner
+best_used_for:
+  - Triage sensitive notes inside a verified offline environment
+  - Extract structured fields from local files
+avoid:
+  - Assume privacy without checking telemetry, network, logs, and storage
+  - Promote weak local-model output into a verified claim
+workflow_position:
+  before:
+    - runtime and data-boundary verification
+  during:
+    - private processing
+  after:
+    - evidence and output audit
+evidence:
+  source: user-defined runtime documentation
+  verified_on: 2026-08-18

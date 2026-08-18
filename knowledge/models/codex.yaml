@@ -1,0 +1,34 @@
+id: codex
+tool:
+  name: GPT-5.3-Codex
+  provider: OpenAI
+category:
+  - software_architecture
+  - complex_implementation
+  - repository_work
+role: Architect and complex implementation agent
+positioning: Use for wider codebase reasoning and long-horizon implementation; keep scientific conclusions behind an evidence review.
+strengths:
+  - architecture across multiple modules
+  - complex repository changes
+  - implementation planning
+  - integrated verification
+weaknesses:
+  - not an experimental evidence source
+  - model-generated biological claims require primary sources
+best_used_for:
+  - Define a scientific application architecture
+  - Implement a cross-cutting repository change
+  - Plan a migration with tests
+avoid:
+  - Promote an unsupported biological hypothesis to fact
+workflow_position:
+  before:
+    - explicit human goal and evidence boundary
+  during:
+    - architecture and complex implementation
+  after:
+    - tests, review, and owner-controlled publication
+evidence:
+  source: https://learn.chatgpt.com/docs/changelog#codex-2026-02-05
+  verified_on: 2026-08-18

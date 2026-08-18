@@ -1,0 +1,33 @@
+id: github-copilot
+tool:
+  name: GitHub Copilot
+  provider: GitHub
+category:
+  - coding_assistance
+  - inline_iteration
+role: IDE-side implementation companion
+positioning: Pair with a scoped implementation plan and repository tests; do not use as a biological source.
+strengths:
+  - inline coding suggestions
+  - local implementation feedback
+  - developer workflow integration
+weaknesses:
+  - suggestions inherit repository and prompt assumptions
+  - output requires review and tests
+best_used_for:
+  - Complete a focused implementation edit
+  - Explain a local function
+  - Suggest tests for an existing module
+avoid:
+  - Make unsupported scientific conclusions
+  - Bypass repository review gates
+workflow_position:
+  before:
+    - scoped task and repository context
+  during:
+    - inline implementation
+  after:
+    - tests and diff review
+evidence:
+  source: https://docs.github.com/en/copilot
+  verified_on: 2026-08-18

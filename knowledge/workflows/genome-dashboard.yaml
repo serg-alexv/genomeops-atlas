@@ -1,0 +1,18 @@
+id: genome-dashboard
+name: Create a genome project dashboard
+task_type: build_visualization
+principle: Architecture first; fast implementation second; independent review before deployment.
+anti_pattern:
+  - Ask a fast iteration model to design and build the entire system without a reviewed architecture.
+steps:
+  - actor: GPT reasoning or Codex architecture agent
+    responsibility: Define data model, components, evidence states, and repository boundaries.
+  - actor: GPT-5.3-Codex-Spark
+    responsibility: Implement focused UI components, fixes, styling, and refactors.
+  - actor: Claude or Gemini review lane
+    responsibility: Challenge usability, missing states, documentation, and unsupported assumptions.
+  - actor: GitHub Actions
+    responsibility: Run lint, tests, and production build.
+  - actor: Vercel
+    responsibility: Create preview or production deployment after verification.
+gate: Human owner decides whether to publish or promote.

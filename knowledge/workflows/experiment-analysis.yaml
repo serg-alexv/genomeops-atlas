@@ -1,0 +1,14 @@
+id: experiment-analysis
+name: Analyze an experimental observation
+task_type: analyze_genome
+scope: Non-procedural evidence analysis only.
+steps:
+  - actor: Human
+    responsibility: Record the observation, provenance, controls, and raw artifact locations.
+  - actor: Reasoning model
+    responsibility: Separate observations, interpretations, competing hypotheses, and missing evidence.
+  - actor: Independent critic
+    responsibility: Look for measurement artifacts and unsupported causal leaps.
+  - actor: Research Memory
+    responsibility: Store the decision and explicit validation boundary.
+gate: A model cannot promote a hypothesis to experimentally confirmed.

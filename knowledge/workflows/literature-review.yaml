@@ -1,0 +1,17 @@
+id: literature-review
+name: Evidence-aware literature review
+task_type: review_literature
+steps:
+  - actor: Human
+    responsibility: Define question, inclusion criteria, date range, and acceptable evidence.
+  - actor: PubMed or primary literature index
+    responsibility: Retrieve source records.
+  - actor: Gemini or discovery model
+    responsibility: Expand vocabulary and identify candidate sources.
+  - actor: GPT reasoning model
+    responsibility: Synthesize only source-linked claims and expose disagreement.
+  - actor: Claude review lane
+    responsibility: Audit missing caveats and writing quality.
+  - actor: Research Memory
+    responsibility: Store claim, source, date, confidence, and unresolved questions.
+gate: No claim is marked confirmed solely from model consensus.

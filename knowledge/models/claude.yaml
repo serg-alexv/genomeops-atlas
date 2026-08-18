@@ -1,0 +1,32 @@
+id: claude
+tool:
+  name: Claude
+  provider: Anthropic
+category:
+  - critical_review
+  - documentation
+role: Critical reviewer and writing-quality pass
+positioning: Use to challenge reasoning, locate missing caveats, and improve a draft after evidence is attached.
+strengths:
+  - structured critique
+  - documentation review
+  - clarity and tone pass
+weaknesses:
+  - critique remains model output, not independent validation
+  - source fidelity must be checked
+best_used_for:
+  - Review an evidence brief for unsupported leaps
+  - Improve documentation structure
+  - Produce adversarial questions
+avoid:
+  - Sign off a scientific conclusion without source review
+workflow_position:
+  before:
+    - grounded draft and evidence links
+  during:
+    - critical review
+  after:
+    - human acceptance or revision
+evidence:
+  source: https://docs.anthropic.com/en/docs/overview
+  verified_on: 2026-08-18
