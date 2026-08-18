@@ -4,6 +4,8 @@ GenomeOps Atlas is a public pilot for evidence-aware genome project work. It com
 
 The pilot is a control plane, not a biological authority. Demo nodes are visibly marked as predicted, unknown, or needing validation, and no model can promote a claim to confirmed.
 
+**Live pilot:** [genomeops-atlas.vercel.app](https://genomeops-atlas.vercel.app/)
+
 ## Pilot modules
 
 - **Projects** — three seeded project briefs for *Lactococcus lactis* oxygen metabolism, LAB restriction–modification systems, and a genome engineering knowledge base.
@@ -56,7 +58,8 @@ YAML and Markdown records are the reviewable source corpus. The frontend imports
 
 - `.github/workflows/verify.yml` runs the locked install and full verification gate on pushes to `main` and on pull requests.
 - `vercel.json` defines the Vite build, single-page-app fallback, and baseline security headers.
-- The Vercel project is connected to the GitHub repository so changes to `main` create production deployments after repository verification.
+- The production Vercel project is locally linked by immutable project and team IDs and was deployed from the committed source after the verification gate passed.
+- Automatic Git-to-Vercel deployments require completing Vercel's one-time email verification in the project dashboard. Until then, GitHub Actions is the authoritative repository gate and production deployment is an explicit post-gate action.
 
 ## Evidence boundary
 

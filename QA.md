@@ -24,6 +24,15 @@ Tested in the Codex in-app browser against the production build:
 - genome-analysis routing excludes Codex-Spark from the recommended scientific chain;
 - research-memory form, filters, and export affordance render correctly.
 
+## Production verification
+
+- Stable URL: `https://genomeops-atlas.vercel.app/`.
+- Vercel deployment reached `READY` and the stable URL returned HTTP 200.
+- Expected content-security-adjacent headers were present: `X-Content-Type-Options`, `Referrer-Policy`, and `Permissions-Policy`.
+- Vercel reported no runtime error clusters after the first production retrieval.
+- A fresh browser load selected the `nox` evidence node and routed an explicit genome-analysis task with Spark absent from the scientific chain.
+- The live browser reported no console warnings or errors.
+
 ## Visual contract comparison
 
 The rendered implementation was checked against the written visual contract because the optional image-concept service was unavailable at generation time.
@@ -38,4 +47,4 @@ The rendered implementation was checked against the written visual contract beca
 
 ## Remaining boundary
 
-The pilot verifies the local and deployed web interfaces, deterministic routing/prompt behavior, and repository automation. It does not verify biological claims, external tool results, private-data isolation in third-party models, or future GitHub-backed research-memory synchronization.
+The pilot verifies the local and deployed web interfaces, deterministic routing/prompt behavior, and GitHub verification workflow. It does not verify biological claims, external tool results, private-data isolation in third-party models, or future GitHub-backed research-memory synchronization. Automatic Git-to-Vercel deployment remains behind Vercel's one-time account email-verification gate; the current production deployment was completed and verified explicitly.
