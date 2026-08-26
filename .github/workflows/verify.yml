@@ -11,13 +11,10 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: verify-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   lint-test-build:
-    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'pull_request' && github.head_ref != 'analysis/lab-rm-phylogenomics')
+    runs-on: ubuntu-22.04
     timeout-minutes: 10
     steps:
       - name: Check out source
@@ -37,8 +34,8 @@ jobs:
 
   lab-rm-genome-discovery:
     if: github.ref == 'refs/heads/analysis/lab-rm-phylogenomics' || github.head_ref == 'analysis/lab-rm-phylogenomics'
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
     steps:
       - name: Check out source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
