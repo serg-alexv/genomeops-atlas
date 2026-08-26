@@ -44,16 +44,17 @@ def fasta_records(path: Path) -> Iterator[tuple[str, str]]:
 
 
 def classify_file(path: Path) -> str:
+    """Map both current NCBI Datasets names and legacy assembly names."""
     name = path.name
-    if name.endswith("_genomic.fna"):
+    if name == "genomic.fna" or name.endswith("_genomic.fna"):
         return "genome_fasta"
     if name == "protein.faa" or name.endswith("_protein.faa"):
         return "protein_fasta"
     if name == "cds_from_genomic.fna" or name.endswith("_cds_from_genomic.fna"):
         return "cds_fasta"
-    if name.endswith(".gff") or name.endswith(".gff3"):
+    if name in {"genomic.gff", "genomic.gff3"} or name.endswith(".gff") or name.endswith(".gff3"):
         return "gff3"
-    if name.endswith(".gbff"):
+    if name == "genomic.gbff" or name.endswith(".gbff"):
         return "gbff"
     if name == "sequence_report.jsonl":
         return "sequence_report"
@@ -176,6 +177,7 @@ def main() -> None:
             "assembly_directory_present": "yes",
             "total_files": str(sum(type_counts.values())),
             "total_bytes": str(total_bytes),
+            "file_role_counts": ";".join(f"{key}={type_counts[key]}" for key in sorted(type_counts)),
             "missing_required_roles": ";".join(missing),
             "download_complete": "yes" if not missing else "no",
         })
@@ -189,7 +191,7 @@ def main() -> None:
 
     base = ["group", "assembly_accession", "organism_name", "tax_id", "strain", "isolate", "display_label", "assembly_level", "refseq_category", "biosample", "bioproject"]
     write_tsv(args.file_manifest, file_rows, base + ["file_role", "relative_path", "bytes", "sha256"])
-    write_tsv(args.assembly_summary, assembly_rows, base + ["assembly_directory_present", "total_files", "total_bytes", "missing_required_roles", "download_complete"])
+    write_tsv(args.assembly_summary, assembly_rows, base + ["assembly_directory_present", "total_files", "total_bytes", "file_role_counts", "missing_required_roles", "download_complete"])
     write_tsv(args.protein_summary, proteome_rows, base + ["protein_count", "total_amino_acid_residues", "unique_header_ids", "duplicate_header_ids"])
     args.protein_accessions.write_text("\n".join(all_protein_ids) + "\n", encoding="utf-8")
 
@@ -198,6 +200,7 @@ def main() -> None:
     total_bytes = sum(int(row["total_bytes"]) for row in assembly_rows)
     group_counts = Counter(row["group"] for row in assembly_rows)
     unexpected = sorted(g for g in group_counts if g.startswith("UNEXPECTED_"))
+    missing_patterns = Counter(row["missing_required_roles"] or "none" for row in assembly_rows)
 
     with args.report.open("w", encoding="utf-8") as handle:
         handle.write("# Stage 2 — NCBI genome and proteome acquisition\n\n")
@@ -212,6 +215,10 @@ def main() -> None:
         handle.write("| Group | Assemblies |\n|---|---:|\n")
         for group, count in sorted(group_counts.items()):
             handle.write(f"| {group} | {count} |\n")
+        handle.write("\n## Missing-file patterns\n\n")
+        handle.write("| Missing required roles | Assemblies |\n|---|---:|\n")
+        for pattern, count in missing_patterns.most_common():
+            handle.write(f"| {pattern} | {count} |\n")
         handle.write("\nAll file paths, byte sizes, and SHA-256 checksums are recorded in `genome_file_manifest.tsv`.\n")
 
     if complete != len(accessions):
