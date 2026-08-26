@@ -1,0 +1,324 @@
+name: LAB R-M Stage 2 — phylogenomics and R-M annotation
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "analyses/lab-rm-phylogenomics/**"
+      - ".github/workflows/lab-rm-stage2.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "analyses/lab-rm-phylogenomics/**"
+      - ".github/workflows/lab-rm-stage2.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lab-rm-stage2-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # ── Stage 1: genome discovery ─────────────────────────────────────────────
+  stage1-discover:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.11"
+
+      - name: Clean prior Stage 1 output
+        run: |
+          rm -rf analyses/lab-rm-phylogenomics/work/stage1
+          rm -rf analyses/lab-rm-phylogenomics/results/stage1
+
+      - name: Run Stage 1 discovery and balanced selection
+        run: |
+          chmod +x analyses/lab-rm-phylogenomics/scripts/discover_genomes.sh
+          analyses/lab-rm-phylogenomics/scripts/discover_genomes.sh \
+            analyses/lab-rm-phylogenomics
+
+      - name: Validate Stage 1 output
+        run: |
+          set -euo pipefail
+          test -s analyses/lab-rm-phylogenomics/results/stage1/all_candidates.tsv
+          test -s analyses/lab-rm-phylogenomics/results/stage1/selected_panel.tsv
+          test -s analyses/lab-rm-phylogenomics/results/stage1/DISCOVERY_SUMMARY.md
+          selected=$(( $(wc -l < analyses/lab-rm-phylogenomics/results/stage1/selected_panel.tsv) - 1 ))
+          echo "Selected assemblies: ${selected}"
+          if (( selected < 140 || selected > 200 )); then
+            echo "::warning::Panel size ${selected} outside preferred 140–200 range"
+          fi
+          # Verify Enterococcus is absent
+          if grep -qi "Enterococcus" \
+              analyses/lab-rm-phylogenomics/results/stage1/selected_panel.tsv; then
+            echo "::error::Enterococcus found in selected panel!"
+            exit 1
+          fi
+
+      - name: Print Stage 1 summary
+        if: always()
+        run: |
+          if [[ -s analyses/lab-rm-phylogenomics/results/stage1/DISCOVERY_SUMMARY.md ]]; then
+            cat analyses/lab-rm-phylogenomics/results/stage1/DISCOVERY_SUMMARY.md
+          fi
+
+      - name: Upload Stage 1 results
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: lab-rm-stage1-panel
+          path: analyses/lab-rm-phylogenomics/results/stage1/
+          if-no-files-found: error
+          retention-days: 30
+
+  # ── Stage 2: sequence download ────────────────────────────────────────────
+  stage2-download:
+    needs: stage1-discover
+    runs-on: ubuntu-22.04
+    timeout-minutes: 180
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Restore Stage 1 panel
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: lab-rm-stage1-panel
+          path: analyses/lab-rm-phylogenomics/results/stage1/
+
+      - name: Download sequences (genome, protein, GFF3, GBFF)
+        run: |
+          chmod +x analyses/lab-rm-phylogenomics/scripts/download_sequences.sh
+          analyses/lab-rm-phylogenomics/scripts/download_sequences.sh \
+            analyses/lab-rm-phylogenomics
+
+      - name: Upload Stage 2 manifest and checksums
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: lab-rm-stage2-manifest
+          path: |
+            analyses/lab-rm-phylogenomics/results/stage2/accession_manifest.tsv
+            analyses/lab-rm-phylogenomics/results/stage2/ncbi_datasets_version.txt
+            analyses/lab-rm-phylogenomics/results/stage2/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload Stage 2 assemblies
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: lab-rm-stage2-assemblies
+          path: analyses/lab-rm-phylogenomics/results/stage2/assemblies/
+          if-no-files-found: error
+          retention-days: 30
+
+  # ── Stage 3: phylogenomics ────────────────────────────────────────────────
+  stage3-phylogenomics:
+    needs: stage2-download
+    runs-on: ubuntu-22.04
+    timeout-minutes: 360
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up Conda (Mambaforge)
+        uses: conda-incubator/setup-miniconda@835155f4e81fd54cee06253ba10e37e0c7fa5d6e # v3
+        with:
+          miniforge-version: latest
+          activate-environment: lab-rm-stage2
+          environment-file: analyses/lab-rm-phylogenomics/environment.yml
+          auto-activate-base: false
+          conda-solver: libmamba
+
+      - name: Restore Stage 1 panel
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: lab-rm-stage1-panel
+          path: analyses/lab-rm-phylogenomics/results/stage1/
+
+      - name: Restore Stage 2 manifest
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: lab-rm-stage2-manifest
+          path: analyses/lab-rm-phylogenomics/results/stage2/
+
+      - name: Restore Stage 2 assemblies
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: lab-rm-stage2-assemblies
+          path: analyses/lab-rm-phylogenomics/results/stage2/assemblies/
+
+      - name: Capture software versions
+        shell: bash -l {0}
+        run: |
+          set -euo pipefail
+          mkdir -p analyses/lab-rm-phylogenomics/results/stage3
+          {
+            printf "tool\tversion\n"
+            GToTree --version 2>&1 | head -1 | awk '{print "GToTree\t"$0}' || true
+            iqtree2 --version 2>&1 | grep -i "IQ-TREE" | head -1 | awk '{print "IQ-TREE2\t"$0}' || true
+            trimal --version 2>&1 | head -1 | awk '{print "trimAl\t"$0}' || true
+            hmmsearch -h 2>&1 | grep "HMMER" | head -1 | awk '{print "HMMER\t"$0}' || true
+            python --version 2>&1 | awk '{print "Python\t"$0}' || true
+          } | tee analyses/lab-rm-phylogenomics/results/SOFTWARE_VERSIONS.tsv
+
+      - name: Run phylogenomics (GToTree + IQ-TREE 2)
+        shell: bash -l {0}
+        run: |
+          chmod +x analyses/lab-rm-phylogenomics/scripts/run_phylogenomics.sh
+          analyses/lab-rm-phylogenomics/scripts/run_phylogenomics.sh \
+            analyses/lab-rm-phylogenomics
+
+      - name: Upload Stage 3 phylogenomics bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: lab-rm-stage3-phylogenomics
+          path: analyses/lab-rm-phylogenomics/results/stage3/
+          if-no-files-found: error
+          retention-days: 30
+
+  # ── Stage 4: R-M annotation ───────────────────────────────────────────────
+  stage4-rm-annotation:
+    needs: stage2-download
+    runs-on: ubuntu-22.04
+    timeout-minutes: 240
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up Conda (Mambaforge)
+        uses: conda-incubator/setup-miniconda@835155f4e81fd54cee06253ba10e37e0c7fa5d6e # v3
+        with:
+          miniforge-version: latest
+          activate-environment: lab-rm-stage2
+          environment-file: analyses/lab-rm-phylogenomics/environment.yml
+          auto-activate-base: false
+          conda-solver: libmamba
+
+      - name: Restore Stage 1 panel
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: lab-rm-stage1-panel
+          path: analyses/lab-rm-phylogenomics/results/stage1/
+
+      - name: Restore Stage 2 manifest and assemblies
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: lab-rm-stage2-manifest
+          path: analyses/lab-rm-phylogenomics/results/stage2/
+
+      - name: Restore Stage 2 assemblies
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: lab-rm-stage2-assemblies
+          path: analyses/lab-rm-phylogenomics/results/stage2/assemblies/
+
+      - name: Run DefenseFinder R-M annotation
+        shell: bash -l {0}
+        run: |
+          chmod +x analyses/lab-rm-phylogenomics/scripts/run_rm_annotation.sh
+          analyses/lab-rm-phylogenomics/scripts/run_rm_annotation.sh \
+            analyses/lab-rm-phylogenomics
+
+      - name: Upload Stage 4 R-M annotation bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: lab-rm-stage4-rm-annotation
+          path: analyses/lab-rm-phylogenomics/results/stage4/
+          if-no-files-found: error
+          retention-days: 30
+
+  # ── Stage 5: iTOL files + validation ─────────────────────────────────────
+  stage5-itol-validate:
+    needs: [stage3-phylogenomics, stage4-rm-annotation]
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.11"
+
+      - name: Restore all prior stage artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: lab-rm-stage1-panel
+          path: analyses/lab-rm-phylogenomics/results/stage1/
+
+      - name: Restore Stage 2 manifest
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: lab-rm-stage2-manifest
+          path: analyses/lab-rm-phylogenomics/results/stage2/
+
+      - name: Restore Stage 3 phylogenomics
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: lab-rm-stage3-phylogenomics
+          path: analyses/lab-rm-phylogenomics/results/stage3/
+
+      - name: Restore Stage 4 R-M annotation
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: lab-rm-stage4-rm-annotation
+          path: analyses/lab-rm-phylogenomics/results/stage4/
+
+      - name: Generate iTOL annotation files
+        run: |
+          mkdir -p analyses/lab-rm-phylogenomics/results/stage5/itol
+          python3 analyses/lab-rm-phylogenomics/scripts/generate_itol_files.py \
+            --matrix    analyses/lab-rm-phylogenomics/results/stage4/tables/genome_rm_matrix.tsv \
+            --label-map analyses/lab-rm-phylogenomics/results/stage3/label_to_accession.tsv \
+            --panel     analyses/lab-rm-phylogenomics/results/stage1/selected_panel.tsv \
+            --out-dir   analyses/lab-rm-phylogenomics/results/stage5/itol
+
+      - name: Run cross-check bundle validation
+        run: |
+          chmod +x analyses/lab-rm-phylogenomics/scripts/validate_outputs.sh
+          analyses/lab-rm-phylogenomics/scripts/validate_outputs.sh \
+            analyses/lab-rm-phylogenomics
+
+      - name: Compute final SHA256 checksums
+        run: |
+          find analyses/lab-rm-phylogenomics/results/stage3 \
+               analyses/lab-rm-phylogenomics/results/stage4/tables \
+               analyses/lab-rm-phylogenomics/results/stage5 \
+            -type f \( -name "*.tsv" -o -name "*.nwk" -o -name "*.faa" -o -name "*.txt" \) \
+            | sort | xargs sha256sum \
+            > analyses/lab-rm-phylogenomics/results/SHA256SUMS.txt
+
+      - name: Print validation report
+        if: always()
+        run: |
+          if [[ -s analyses/lab-rm-phylogenomics/results/VALIDATION_REPORT.md ]]; then
+            cat analyses/lab-rm-phylogenomics/results/VALIDATION_REPORT.md
+          fi
+
+      - name: Upload complete cross-check bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: lab-rm-stage2-complete-bundle
+          path: |
+            analyses/lab-rm-phylogenomics/results/stage3/
+            analyses/lab-rm-phylogenomics/results/stage4/
+            analyses/lab-rm-phylogenomics/results/stage5/
+            analyses/lab-rm-phylogenomics/results/VALIDATION_REPORT.md
+            analyses/lab-rm-phylogenomics/results/SHA256SUMS.txt
+            analyses/lab-rm-phylogenomics/results/SOFTWARE_VERSIONS.tsv
+          if-no-files-found: warn
+          retention-days: 30
