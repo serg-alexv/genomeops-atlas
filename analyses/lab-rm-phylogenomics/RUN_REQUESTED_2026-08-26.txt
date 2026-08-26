@@ -1,4 +1,5 @@
 Stage 1 NCBI RefSeq discovery requested after isolating the analysis workflow.
 Requested date: 2026-08-26
-Execution route: merge the dedicated pipeline into the genomeops-atlas default branch and run the standalone workflow.
+Execution route: standalone default-branch GitHub Actions workflow.
+Trigger commit: first post-registration run.
 Expected output artifact: lab-rm-stage1-genome-discovery
