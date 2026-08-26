@@ -1,0 +1,60 @@
+name: LAB R-M Stage 2 genome and proteome acquisition
+
+on:
+  workflow_dispatch:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lab-rm-stage2-${{ github.event.issue.number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  acquire-selected-genomes:
+    if: github.event_name != 'issues' || startsWith(github.event.issue.title, '[RUN] LAB R-M Stage 2')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11'
+
+      - name: Download and inventory the frozen 177-genome panel
+        run: |
+          chmod +x analyses/lab-rm-phylogenomics/scripts/download_selected_genomes.sh
+          analyses/lab-rm-phylogenomics/scripts/download_selected_genomes.sh analyses/lab-rm-phylogenomics
+
+      - name: Validate Stage 2 outputs
+        run: |
+          set -euo pipefail
+          R=analyses/lab-rm-phylogenomics/results/stage2
+          test -s "$R/lab_177_ncbi_genomes.zip"
+          test -s "$R/genome_file_manifest.tsv"
+          test -s "$R/downloaded_assembly_summary.tsv"
+          test -s "$R/proteome_summary.tsv"
+          test -s "$R/STAGE2_SUMMARY.md"
+          count=$(( $(wc -l < "$R/downloaded_assembly_summary.tsv") - 1 ))
+          complete=$(awk -F '\t' 'NR>1 && $9=="yes" {n++} END{print n+0}' "$R/downloaded_assembly_summary.tsv")
+          echo "Assemblies inventoried: $count; complete file sets: $complete"
+          test "$count" -eq 177
+          test "$complete" -eq 177
+
+      - name: Print Stage 2 summary
+        run: cat analyses/lab-rm-phylogenomics/results/stage2/STAGE2_SUMMARY.md
+
+      - name: Upload Stage 2 acquisition package
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: lab-rm-stage2-genomes-proteomes
+          path: analyses/lab-rm-phylogenomics/results/stage2/
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 30
