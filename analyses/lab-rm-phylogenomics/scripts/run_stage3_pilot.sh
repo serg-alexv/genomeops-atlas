@@ -32,14 +32,16 @@ find "$WORK/input_faa" -name '*.faa' -type f | sort > "$WORK/faa.list"
 gtt-hmms > "$RESULTS/available_gtt_hmms.txt" 2>&1 || true
 GToTree --version > "$RESULTS/gtotree_version.txt" 2>&1 || true
 
-# `-A` is the GToTree input mode for amino-acid/proteome FASTA files.
-# The previous diagnostic run intentionally exposed that `-f` treats files as
-# nucleotide genomes and invokes Prodigal, yielding zero marker hits on protein FASTA.
+# `-A` is GToTree amino-acid/proteome input mode.
 GToTree -A "$WORK/faa.list" -H Firmicutes -o "$WORK/gtotree" -j 4 -d 2>&1 | tee "$RESULTS/gtotree.log"
 
 test -s "$WORK/gtotree/Aligned_SCGs.faa"
 test -s "$WORK/gtotree/Aligned_SCGs_mod_names.faa"
-test -s "$WORK/gtotree/GToTree_output.tre"
+test -s "$WORK/gtotree/gtotree.tre"
+test -s "$WORK/gtotree/SCG_hit_counts.tsv"
+test -d "$WORK/gtotree/SCG_ids"
+test -d "$WORK/gtotree/SCG_seqs"
+test -d "$WORK/gtotree/SCG_hits_per_genome_unaligned_single_seqs"
 
 cp -R "$WORK/gtotree" "$RESULTS/gtotree_output"
 cp -R "$WORK/input_faa" "$RESULTS/input_proteomes"
@@ -47,13 +49,14 @@ cp "$ACCESSIONS" "$RESULTS/pilot_accessions.txt"
 find "$RESULTS" -type f -printf '%P\t%s\n' | sort > "$RESULTS/output_inventory.tsv"
 find "$RESULTS" -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > "$RESULTS/SHA256SUMS.txt"
 
-retained=$(awk 'NR>1 {for(i=2;i<=NF;i++) if($i>0){seen[i]=1}} END{print length(seen)}' "$WORK/gtotree/SCG_hit_counts.tsv" 2>/dev/null || echo NA)
 cat > "$RESULTS/PILOT_SUMMARY.md" <<EOF
 # Stage 3 phylogenomics pilot
 
 - Input proteomes: **$(wc -l < "$ACCESSIONS")**
 - Marker set: **Firmicutes (119 HMM targets)**
 - Input mode: **GToTree amino-acid files (`-A`)**
-- Concatenated alignment and tree: **generated successfully**
-- Purpose: verify the current GToTree installation, output layout, sequence-header retention, and availability of per-marker sequences before scaling to 177 LAB genomes.
+- Concatenated alignment: **generated**
+- FastTree topology: **generated as `gtotree.tre`**
+- Per-marker IDs, sequences, and per-genome single-copy hits: **preserved**
+- Purpose: verify exact outputs and sequence-header retention before scaling to 177 LAB genomes.
 EOF
