@@ -13,15 +13,32 @@ exec > >(tee "${WORK}/logs/smoke.stdout.log") 2> >(tee "${WORK}/logs/smoke.stder
 echo "[smoke] started: $(date -u +%FT%TZ)"
 
 # ---------------------------------------------------------------------------
-# Tool inventory
+# Tool inventory. Version probes are deliberately non-fatal because some
+# current CLIs (notably DefenseFinder 3.x and dataformat) do not expose a
+# conventional --version command.
 # ---------------------------------------------------------------------------
 {
   echo -e "tool\tversion_or_path"
-  printf "datasets\t"; datasets version 2>&1 | tr '\n' ' '; echo
-  printf "dataformat\t"; dataformat version 2>&1 | tr '\n' ' '; echo
-  printf "GToTree\t"; GToTree -v 2>&1 | tr '\n' ' '; echo
-  printf "IQ-TREE\t"; (iqtree3 --version 2>/dev/null || iqtree2 --version 2>/dev/null || iqtree --version 2>/dev/null) | tr '\n' ' '; echo
-  printf "DefenseFinder\t"; defense-finder --version 2>&1 | tr '\n' ' '; echo
+  printf "datasets\t"; (datasets version 2>&1 || true) | tr '\n' ' '; echo
+  printf "dataformat\t"; (dataformat version 2>&1 || true) | tr '\n' ' '; echo
+  printf "GToTree\t"; (GToTree -v 2>&1 || true) | tr '\n' ' '; echo
+  printf "IQ-TREE\t"; ((iqtree3 --version 2>/dev/null || iqtree2 --version 2>/dev/null || iqtree --version 2>/dev/null) || true) | tr '\n' ' '; echo
+  printf "DefenseFinder\t"; python - <<'PY' | tr '\n' ' '; echo
+import importlib.metadata as md
+for name in ("mdmparis-defense-finder", "defense-finder"):
+    try:
+        print(md.version(name))
+        break
+    except md.PackageNotFoundError:
+        pass
+else:
+    matches=[]
+    for dist in md.distributions():
+        project=(dist.metadata.get("Name") or "").lower()
+        if "defense" in project and "finder" in project:
+            matches.append(f"{dist.metadata.get('Name')}={dist.version}")
+    print(",".join(matches) if matches else "installed_version_not_resolved")
+PY
   printf "Python\t"; python --version 2>&1
 } > "${WORK}/SOFTWARE_VERSIONS.tsv"
 
