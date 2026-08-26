@@ -2,6 +2,8 @@ name: LAB R-M genome discovery
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: "*/5 * * * *"
   pull_request:
     types: [opened, synchronize, reopened]
     paths:
