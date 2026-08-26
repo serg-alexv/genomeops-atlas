@@ -48,10 +48,11 @@ done < "$STAGE2/accession_manifest.tsv"
 
 # ── aggregate results ─────────────────────────────────────────────────────────
 python3 "$ROOT/scripts/classify_rm_systems.py" \
-  --raw-dir     "$OUT/raw" \
-  --manifest    "$STAGE2/accession_manifest.tsv" \
-  --panel       "$PANEL" \
-  --out-dir     "$OUT/tables" \
-  --rm-evidence "$ROOT/results/stage4/RM_evidence.tsv"
+  --raw-dir        "$OUT/raw" \
+  --assemblies-dir "$STAGE2/assemblies" \
+  --manifest       "$STAGE2/accession_manifest.tsv" \
+  --panel          "$PANEL" \
+  --out-dir        "$OUT/tables" \
+  --rm-evidence    "$ROOT/results/stage4/RM_evidence.tsv"
 
 echo "Stage 4 R-M annotation complete. Outputs in $OUT" >&2

@@ -109,19 +109,30 @@ elif [[ -d "$OUT/gtotree/run_files" ]]; then
 fi
 
 # ── build long-format marker-hit table ───────────────────────────────────────
+# Parse each per-marker FASTA in a single awk pass to correctly pair every
+# header with its own sequence length (avoids the O(n²) inner-loop problem).
 MARKER_TABLE="$OUT/markers/marker_hit_table.tsv"
 printf 'accession\torganism\tmarker_id\tprotein_accession\tlength\tseq_file\n' > "$MARKER_TABLE"
 if [[ -d "$OUT/markers/unaligned" ]]; then
   while IFS= read -r fa; do
     marker=$(basename "$fa" .faa)
-    while IFS= read -r line; do
-      if [[ "$line" =~ ^\> ]]; then
-        header="${line#>}"
-        acc=$(printf '%s' "$header" | awk '{print $1}')
-        len=$(awk '/^>/{if(seq)print length(seq); seq=""} !/^>/{seq=seq$0} END{if(seq)print length(seq)}' "$fa" | tail -1)
-        printf '%s\t%s\t%s\t%s\t%s\t%s\n' "unknown" "unknown" "$marker" "$acc" "$len" "$(basename "$fa")"
-      fi
-    done < "$fa"
+    fname=$(basename "$fa")
+    awk -v marker="$marker" -v fname="$fname" '
+      /^>/ {
+        if (acc != "" && seq != "") {
+          print "unknown\tunknown\t" marker "\t" acc "\t" length(seq) "\t" fname
+        }
+        acc = substr($1, 2)
+        seq = ""
+        next
+      }
+      { seq = seq $0 }
+      END {
+        if (acc != "" && seq != "") {
+          print "unknown\tunknown\t" marker "\t" acc "\t" length(seq) "\t" fname
+        }
+      }
+    ' "$fa"
   done < <(find "$OUT/markers/unaligned" -name "*.faa" | sort) >> "$MARKER_TABLE"
 fi
 

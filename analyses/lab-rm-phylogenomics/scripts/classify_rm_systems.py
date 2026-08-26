@@ -57,11 +57,13 @@ def read_tsv(path: Path) -> list[dict]:
 
 def parse_args() -> argparse.Namespace:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--raw-dir",     required=True, type=Path)
-    ap.add_argument("--manifest",    required=True, type=Path)
-    ap.add_argument("--panel",       required=True, type=Path)
-    ap.add_argument("--out-dir",     required=True, type=Path)
-    ap.add_argument("--rm-evidence", required=True, type=Path)
+    ap.add_argument("--raw-dir",        required=True, type=Path)
+    ap.add_argument("--assemblies-dir", required=True, type=Path,
+                    help="Path to Stage 2 assemblies directory (contains one subdir per accession)")
+    ap.add_argument("--manifest",       required=True, type=Path)
+    ap.add_argument("--panel",          required=True, type=Path)
+    ap.add_argument("--out-dir",        required=True, type=Path)
+    ap.add_argument("--rm-evidence",    required=True, type=Path)
     return ap.parse_args()
 
 
@@ -204,17 +206,19 @@ def main() -> None:
                         "notes": "orphan_MTase_no_complete_system",
                     })
 
-        # Merge states (highest: V > C > P > 0)
+        # Merge states using explicit priority (V > C > P > 0).
+        # V is never inferred here — it can only be set by manual curation.
         priority = {"V": 3, "C": 2, "P": 1, "0": 0}
         for rm_type in STATE_LABELS:
             if type_counts[rm_type] == 0:
                 type_states[rm_type] = "0"
-            # if any locus for this genome+type is C, state is C
-            c_count = sum(1 for r in locus_rows
-                          if r["accession"] == acc and r["rm_type"] == rm_type
-                          and r["completeness_state"] == "C")
-            if c_count > 0:
-                type_states[rm_type] = "C"
+                continue
+            # Promote to highest state seen across loci for this genome+type
+            for lr in locus_rows:
+                if lr["accession"] == acc and lr["rm_type"] == rm_type:
+                    candidate = lr["completeness_state"]
+                    if priority.get(candidate, 0) > priority.get(type_states[rm_type], 0):
+                        type_states[rm_type] = candidate
 
         matrix_rows.append({
             "accession": acc,
@@ -230,8 +234,8 @@ def main() -> None:
             "Type_IV_count":  type_counts["Type_IV"],
         })
 
-        # Collect R-M proteins
-        faa_file = args.raw_dir.parent.parent / "stage2" / "assemblies" / acc
+        # Collect R-M proteins from the explicit assemblies directory
+        faa_file = args.assemblies_dir / acc
         # Search for protein FASTA in assembly dir
         faa_candidates = list(faa_file.glob("*.faa")) if faa_file.exists() else []
         if faa_candidates and locus_rows:
