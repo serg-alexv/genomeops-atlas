@@ -2,10 +2,11 @@ name: LAB R-M genome discovery
 
 on:
   workflow_dispatch:
+  issues:
+    types: [opened]
   push:
     branches:
       - main
-      - analysis/lab-rm-phylogenomics
     paths:
       - "analyses/lab-rm-phylogenomics/**"
       - ".github/workflows/lab-rm-genome-discovery.yml"
@@ -14,11 +15,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: lab-rm-discovery-${{ github.ref }}
+  group: lab-rm-discovery-${{ github.event_name }}-${{ github.event.issue.number || github.ref }}
   cancel-in-progress: false
 
 jobs:
   discover-genomes:
+    if: github.event_name != 'issues' || startsWith(github.event.issue.title, '[RUN] LAB R-M Stage 1')
     runs-on: ubuntu-22.04
     timeout-minutes: 90
 
