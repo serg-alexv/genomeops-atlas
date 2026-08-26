@@ -1,0 +1,53 @@
+name: LAB R-M Stage 3 phylogenomics pilot
+
+on:
+  workflow_dispatch:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+
+jobs:
+  pilot:
+    if: github.event_name != 'issues' || startsWith(github.event.issue.title, '[RUN] LAB R-M Stage 3 Pilot')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Install micromamba and GToTree
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xj -C "$RUNNER_TEMP" bin/micromamba
+          "$RUNNER_TEMP/bin/micromamba" create -y -p "$RUNNER_TEMP/labphylo" \
+            -c astrobiomike -c conda-forge -c bioconda \
+            gtotree=1.8.17
+          "$RUNNER_TEMP/bin/micromamba" run -p "$RUNNER_TEMP/labphylo" GToTree --version
+
+      - name: Run five-proteome marker pilot
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x analyses/lab-rm-phylogenomics/scripts/run_stage3_pilot.sh
+          "$RUNNER_TEMP/bin/micromamba" run -p "$RUNNER_TEMP/labphylo" \
+            analyses/lab-rm-phylogenomics/scripts/run_stage3_pilot.sh analyses/lab-rm-phylogenomics
+
+      - name: Show pilot summary and outputs
+        if: always()
+        run: |
+          R=analyses/lab-rm-phylogenomics/results/stage3_pilot
+          if [[ -s "$R/PILOT_SUMMARY.md" ]]; then cat "$R/PILOT_SUMMARY.md"; fi
+          if [[ -s "$R/output_inventory.tsv" ]]; then head -100 "$R/output_inventory.tsv"; fi
+
+      - name: Upload Stage 3 pilot
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: lab-rm-stage3-phylogenomics-pilot
+          path: analyses/lab-rm-phylogenomics/results/stage3_pilot/
+          if-no-files-found: warn
+          retention-days: 30
