@@ -118,7 +118,6 @@ def dedup_key(row: Dict[str, str]) -> Tuple[str, str, str]:
 def quality_key(row: Dict[str, str]) -> Tuple:
     level = norm(row.get("assembly_level"))
     refseq = norm(row.get("refseq_category"))
-    type_material = 0 if clean(row.get("type_material")) else 1
     completeness = to_float(row.get("checkm_completeness"), default=-1.0)
     contamination = to_float(row.get("checkm_contamination"), default=999.0)
     contigs = to_int(row.get("contig_count"))
@@ -126,7 +125,6 @@ def quality_key(row: Dict[str, str]) -> Tuple:
     return (
         ASSEMBLY_RANK.get(level, 9),
         REFSEQ_RANK.get(refseq, 2),
-        type_material,
         -completeness,
         contamination,
         contigs,
@@ -289,10 +287,9 @@ def main() -> None:
         handle.write("## Selection hierarchy\n\n")
         handle.write("1. Complete genome over chromosome over scaffold.\n")
         handle.write("2. RefSeq reference over representative over other RefSeq assemblies.\n")
-        handle.write("3. Type-material assembly where reported.\n")
-        handle.write("4. Higher CheckM completeness, lower contamination, fewer contigs.\n")
-        handle.write("5. One best assembly per species first, then round-robin additional strains until the group quota is reached.\n")
-        handle.write("6. Unnamed `sp.` and unclassified records are excluded from the visible panel.\n")
+        handle.write("3. Higher CheckM completeness, lower contamination, fewer contigs.\n")
+        handle.write("4. One best assembly per species first, then round-robin additional strains until the group quota is reached.\n")
+        handle.write("5. Unnamed `sp.` and unclassified records are excluded from the visible panel.\n")
 
 
 if __name__ == "__main__":
