@@ -42,19 +42,23 @@ jobs:
           test -s "$R/proteome_summary.tsv"
           test -s "$R/STAGE2_SUMMARY.md"
           count=$(( $(wc -l < "$R/downloaded_assembly_summary.tsv") - 1 ))
-          complete=$(awk -F '\t' 'NR>1 && $9=="yes" {n++} END{print n+0}' "$R/downloaded_assembly_summary.tsv")
+          complete=$(awk -F '\t' 'NR==1 {for(i=1;i<=NF;i++) if($i=="download_complete") c=i; next} c && $c=="yes" {n++} END{print n+0}' "$R/downloaded_assembly_summary.tsv")
           echo "Assemblies inventoried: $count; complete file sets: $complete"
           test "$count" -eq 177
           test "$complete" -eq 177
 
       - name: Print Stage 2 summary
-        run: cat analyses/lab-rm-phylogenomics/results/stage2/STAGE2_SUMMARY.md
+        if: always()
+        run: |
+          R=analyses/lab-rm-phylogenomics/results/stage2
+          if [[ -s "$R/STAGE2_SUMMARY.md" ]]; then cat "$R/STAGE2_SUMMARY.md"; fi
 
       - name: Upload Stage 2 acquisition package
+        if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: lab-rm-stage2-genomes-proteomes
           path: analyses/lab-rm-phylogenomics/results/stage2/
           compression-level: 0
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 30
