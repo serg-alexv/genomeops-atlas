@@ -1,0 +1,68 @@
+name: LAB R-M Stage 2 split export
+
+on:
+  workflow_dispatch:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    if: github.event_name != 'issues' || startsWith(github.event.issue.title, '[RUN] LAB R-M Stage 2 Export')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11'
+      - name: Recreate, validate, and split the frozen NCBI package
+        run: |
+          chmod +x analyses/lab-rm-phylogenomics/scripts/export_stage2_split.sh
+          analyses/lab-rm-phylogenomics/scripts/export_stage2_split.sh analyses/lab-rm-phylogenomics
+      - name: Validate export
+        run: |
+          set -euo pipefail
+          R=analyses/lab-rm-phylogenomics/results/stage2_export
+          python - <<'PY'
+          import csv, pathlib
+          p=pathlib.Path('analyses/lab-rm-phylogenomics/results/stage2_export/metadata/downloaded_assembly_summary.tsv')
+          rows=list(csv.DictReader(p.open(), delimiter='\t'))
+          assert len(rows)==177, len(rows)
+          assert all(r['download_complete']=='yes' for r in rows)
+          parts=sorted(pathlib.Path('analyses/lab-rm-phylogenomics/results/stage2_export/chunks').glob('*.part*'))
+          assert len(parts)==3, len(parts)
+          print('Validated 177 complete assemblies and', len(parts), 'chunks')
+          PY
+      - name: Upload metadata and audit tables
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: lab-rm-stage2-metadata
+          path: analyses/lab-rm-phylogenomics/results/stage2_export/metadata/
+          retention-days: 30
+      - name: Upload raw NCBI package part 00
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: lab-rm-stage2-raw-part00
+          path: analyses/lab-rm-phylogenomics/results/stage2_export/chunks/lab_177_ncbi_genomes.zip.part00
+          compression-level: 0
+          retention-days: 30
+      - name: Upload raw NCBI package part 01
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: lab-rm-stage2-raw-part01
+          path: analyses/lab-rm-phylogenomics/results/stage2_export/chunks/lab_177_ncbi_genomes.zip.part01
+          compression-level: 0
+          retention-days: 30
+      - name: Upload raw NCBI package part 02
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: lab-rm-stage2-raw-part02
+          path: analyses/lab-rm-phylogenomics/results/stage2_export/chunks/lab_177_ncbi_genomes.zip.part02
+          compression-level: 0
+          retention-days: 30
