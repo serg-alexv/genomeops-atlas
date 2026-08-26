@@ -24,10 +24,13 @@ fi
 "$DATASETS" version | tee "$RESULTS/ncbi_datasets_version.txt"
 "$DATAFORMAT" version | tee "$RESULTS/ncbi_dataformat_version.txt"
 
-HEADER="group\taccession\torganism_name\ttax_id\tstrain\tisolate\tassembly_level\trefseq_category\trelease_date\tassembly_name\tcontig_count\ttotal_length\tcheckm_completeness\tcheckm_contamination\ttype_material\tbiosample\tbioproject\tisolation_source\tannotation_pipeline\tannotation_status"
+# Keep only metadata fields accepted by the current NCBI dataformat v18 CLI.
+# The older `type-material-label` field was removed because it is no longer
+# recognized by dataformat 18.36.0.
+HEADER="group\taccession\torganism_name\ttax_id\tstrain\tisolate\tassembly_level\trefseq_category\trelease_date\tassembly_name\tcontig_count\ttotal_length\tcheckm_completeness\tcheckm_contamination\tbiosample\tbioproject\tisolation_source\tannotation_pipeline\tannotation_status"
 printf '%b\n' "$HEADER" > "$RESULTS/all_candidates.tsv"
 
-FIELDS="accession,organism-name,organism-tax-id,organism-infraspecific-strain,organism-infraspecific-isolate,assminfo-level,assminfo-refseq-category,assminfo-release-date,assminfo-name,assmstats-number-of-contigs,assmstats-total-sequence-len,checkm-completeness,checkm-contamination,type-material-label,assminfo-biosample-accession,assminfo-bioproject,assminfo-biosample-isolation-source,annotinfo-pipeline,annotinfo-status"
+FIELDS="accession,organism-name,organism-tax-id,organism-infraspecific-strain,organism-infraspecific-isolate,assminfo-level,assminfo-refseq-category,assminfo-release-date,assminfo-name,assmstats-number-of-contigs,assmstats-total-sequence-len,checkm-completeness,checkm-contamination,assminfo-biosample-accession,assminfo-bioproject,assminfo-biosample-isolation-source,annotinfo-pipeline,annotinfo-status"
 
 while IFS=$'\t' read -r group query exact target_n; do
   [[ "$group" == "group" ]] && continue
@@ -52,7 +55,7 @@ while IFS=$'\t' read -r group query exact target_n; do
   fi
 
   "$DATASETS" "${args[@]}" > "$jsonl"
-  cat "$jsonl" | "$DATAFORMAT" tsv genome --fields "$FIELDS" > "$tsv"
+  "$DATAFORMAT" tsv genome --inputfile "$jsonl" --fields "$FIELDS" > "$tsv"
 
   # Replace dataformat's presentation header with our stable machine header,
   # and prepend the operational group to every data row.
