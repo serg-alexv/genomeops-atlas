@@ -1,0 +1,3 @@
+Stage 1 NCBI RefSeq discovery requested after simplifying the branch workflow.
+Requested date: 2026-08-26
+Expected output artifact: lab-rm-stage1-genome-discovery
