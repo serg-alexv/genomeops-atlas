@@ -1,0 +1,48 @@
+name: LAB R-M Stage 2 smoke test (PR)
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/lab-rm-stage2-smoke-pr.yml'
+      - 'analyses/lab-rm-phylogenomics/environment-smoke.yml'
+      - 'analyses/lab-rm-phylogenomics/config/smoke_accessions.tsv'
+      - 'analyses/lab-rm-phylogenomics/scripts/run_stage2_smoke.sh'
+      - 'analyses/lab-rm-phylogenomics/scripts/root_and_prune_tree.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+      - name: Check out smoke-test branch
+        uses: actions/checkout@v4
+
+      - name: Create pinned bioinformatics environment
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-file: analyses/lab-rm-phylogenomics/environment-smoke.yml
+          environment-name: lab-rm-stage2-smoke
+          cache-environment: true
+          cache-downloads: true
+
+      - name: Run NCBI to markers to ML tree to DefenseFinder smoke test
+        run: bash analyses/lab-rm-phylogenomics/scripts/run_stage2_smoke.sh
+
+      - name: Upload complete smoke-test bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lab-rm-stage2-smoke-pr
+          path: analyses/lab-rm-phylogenomics/smoke-work
+          if-no-files-found: warn
+          retention-days: 30
+          compression-level: 6
