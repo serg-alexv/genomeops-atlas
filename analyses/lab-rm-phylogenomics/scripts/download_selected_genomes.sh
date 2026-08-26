@@ -47,7 +47,7 @@ if [[ -f "$EXTRACTED/md5sum.txt" ]]; then
   (cd "$EXTRACTED" && md5sum -c md5sum.txt) > "$RESULTS/ncbi_md5_verification.txt"
 fi
 
-python3 "$ROOT/scripts/inventory_ncbi_package.py" \
+python3 "$ROOT/scripts/inventory_ncbi_package_v2.py" \
   --accessions "$ACCESSIONS" \
   --package-root "$EXTRACTED" \
   --file-manifest "$RESULTS/genome_file_manifest.tsv" \
