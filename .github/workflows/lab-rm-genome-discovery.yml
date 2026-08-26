@@ -1,0 +1,57 @@
+name: LAB R-M genome discovery
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - analysis/lab-rm-phylogenomics
+    paths:
+      - "analyses/lab-rm-phylogenomics/**"
+      - ".github/workflows/lab-rm-genome-discovery.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  discover-genomes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Check out analysis branch
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Clean prior generated output
+        run: |
+          rm -rf analyses/lab-rm-phylogenomics/work/stage1
+          rm -rf analyses/lab-rm-phylogenomics/results/stage1
+
+      - name: Discover and rank annotated RefSeq assemblies
+        run: |
+          bash analyses/lab-rm-phylogenomics/scripts/discover_genomes.sh
+
+      - name: Validate discovery output
+        run: |
+          set -euo pipefail
+          test -s analyses/lab-rm-phylogenomics/results/stage1/all_candidates.tsv
+          test -s analyses/lab-rm-phylogenomics/results/stage1/selected_panel.tsv
+          test -s analyses/lab-rm-phylogenomics/results/stage1/DISCOVERY_SUMMARY.md
+          selected=$(( $(wc -l < analyses/lab-rm-phylogenomics/results/stage1/selected_panel.tsv) - 1 ))
+          echo "Selected assemblies: ${selected}"
+          if (( selected < 140 || selected > 200 )); then
+            echo "Unexpected panel size outside broad validation range 140-200" >&2
+            exit 1
+          fi
+
+      - name: Upload discovery dataset
+        uses: actions/upload-artifact@v4
+        with:
+          name: lab-rm-stage1-genome-discovery
+          path: analyses/lab-rm-phylogenomics/results/stage1/
+          if-no-files-found: error
+          retention-days: 30
