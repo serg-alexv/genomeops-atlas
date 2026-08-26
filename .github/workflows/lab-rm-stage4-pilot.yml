@@ -1,0 +1,47 @@
+name: LAB R-M Stage 4 DefenseFinder pilot
+
+on:
+  workflow_dispatch:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+
+jobs:
+  pilot:
+    if: github.event_name != 'issues' || startsWith(github.event.issue.title, '[RUN] LAB R-M Stage 4 Pilot')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Install DefenseFinder 3.0.0 and current models
+        run: |
+          set -euo pipefail
+          curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xj -C "$RUNNER_TEMP" bin/micromamba
+          "$RUNNER_TEMP/bin/micromamba" create -y -p "$RUNNER_TEMP/defensefinder" -c conda-forge -c bioconda python=3.12 pip hmmer=3.4
+          "$RUNNER_TEMP/bin/micromamba" run -p "$RUNNER_TEMP/defensefinder" pip install 'mdmparis-defense-finder==3.0.0'
+          "$RUNNER_TEMP/bin/micromamba" run -p "$RUNNER_TEMP/defensefinder" defense-finder update
+          "$RUNNER_TEMP/bin/micromamba" run -p "$RUNNER_TEMP/defensefinder" defense-finder --version || true
+      - name: Run five-genome DefenseFinder pilot
+        run: |
+          set -euo pipefail
+          chmod +x analyses/lab-rm-phylogenomics/scripts/run_stage4_defensefinder_pilot.sh
+          "$RUNNER_TEMP/bin/micromamba" run -p "$RUNNER_TEMP/defensefinder" \
+            analyses/lab-rm-phylogenomics/scripts/run_stage4_defensefinder_pilot.sh analyses/lab-rm-phylogenomics
+      - name: Show pilot summary
+        if: always()
+        run: |
+          R=analyses/lab-rm-phylogenomics/results/stage4_pilot
+          if [[ -s "$R/STAGE4_PILOT_SUMMARY.md" ]]; then cat "$R/STAGE4_PILOT_SUMMARY.md"; fi
+          if [[ -s "$R/file_inventory.tsv" ]]; then head -100 "$R/file_inventory.tsv"; fi
+      - name: Upload Stage 4 pilot
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: lab-rm-stage4-defensefinder-pilot
+          path: analyses/lab-rm-phylogenomics/results/stage4_pilot/
+          if-no-files-found: warn
+          retention-days: 30
