@@ -1,0 +1,1 @@
+Trigger Stage 1 discovery on main after the strict genome-quality gate was merged.
