@@ -1,0 +1,2 @@
+Trigger corrected Stage 1 NCBI RefSeq genome discovery on the default branch.
+Scope: Enterococcus excluded; 10 operational LAB groups; target up to 180 assemblies.
