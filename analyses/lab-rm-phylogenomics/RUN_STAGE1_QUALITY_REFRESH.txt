@@ -1,0 +1,3 @@
+Request a fresh Stage 1 discovery run after applying the strict genome-quality gate.
+Date: 2026-08-26
+Quality floor: CheckM completeness >=95%, contamination <=5%, contigs <=100.
