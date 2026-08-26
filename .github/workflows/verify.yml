@@ -2,7 +2,9 @@ name: Verify pilot
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - analysis/lab-rm-phylogenomics
   pull_request:
   workflow_dispatch:
 
@@ -32,3 +34,37 @@ jobs:
 
       - name: Verify
         run: npm run check
+
+  lab-rm-genome-discovery:
+    if: github.ref == 'refs/heads/analysis/lab-rm-phylogenomics'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+
+      - name: Discover and select candidate LAB genomes
+        run: |
+          chmod +x analyses/lab-rm-phylogenomics/scripts/discover_genomes.sh
+          analyses/lab-rm-phylogenomics/scripts/discover_genomes.sh analyses/lab-rm-phylogenomics
+
+      - name: Show discovery summary
+        if: always()
+        run: |
+          if [[ -f analyses/lab-rm-phylogenomics/results/stage1/DISCOVERY_SUMMARY.md ]]; then
+            cat analyses/lab-rm-phylogenomics/results/stage1/DISCOVERY_SUMMARY.md
+          fi
+
+      - name: Upload Stage 1 discovery package
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: lab-rm-stage1-genome-discovery
+          path: analyses/lab-rm-phylogenomics/results/stage1
+          if-no-files-found: error
+          retention-days: 30
