@@ -82,4 +82,4 @@ The final package is intended to contain:
 
 ## Current status
 
-Stage 1 is automated by `.github/workflows/lab-rm-stage1.yml` and `scripts/discover_genomes.sh`. Selection output remains provisional until the real NCBI candidate coverage is reviewed.
+Stage 1 is implemented by the branch-specific job in `.github/workflows/verify.yml` and `scripts/discover_genomes.sh`. The live NCBI discovery run is being executed through the draft pull request; selection output remains provisional until real candidate coverage is reviewed.
