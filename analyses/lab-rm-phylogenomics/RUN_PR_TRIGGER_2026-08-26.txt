@@ -1,0 +1,3 @@
+This file exists solely to trigger the registered pull-request workflow for the Stage 1 NCBI RefSeq LAB genome discovery run.
+Date: 2026-08-26
+Expected artifact: lab-rm-stage1-genome-discovery
