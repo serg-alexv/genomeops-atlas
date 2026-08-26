@@ -5,13 +5,15 @@ Selection principles
 --------------------
 1. RefSeq, annotated, non-MAG, non-atypical assemblies are filtered upstream.
 2. Named species are preferred; unclassified ``sp.`` records are excluded.
-3. Duplicate assemblies of the same named strain/isolate are collapsed to the
+3. A strict genome-quality floor is applied before balancing:
+   CheckM completeness >= 95%, contamination <= 5%, and <= 100 contigs.
+4. Duplicate assemblies of the same named strain/isolate are collapsed to the
    best assembly.
-4. Within each operational taxon group, one best assembly per species is chosen
+5. Within each operational taxon group, one best assembly per species is chosen
    first; remaining places are filled round-robin across species. This prevents
    over-sequenced species from dominating the panel while allowing multiple
    strains where a group contains only a few species (e.g. S. thermophilus).
-5. Assembly quality ranking is deterministic and documented below.
+6. Assembly quality ranking is deterministic and documented below.
 """
 
 from __future__ import annotations
@@ -25,6 +27,9 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Dict, Iterable, List, Tuple
 
+MIN_COMPLETENESS = 95.0
+MAX_CONTAMINATION = 5.0
+MAX_CONTIGS = 100
 
 ASSEMBLY_RANK = {
     "complete genome": 0,
@@ -68,7 +73,6 @@ def to_float(value: str | None, default: float) -> float:
 
 
 def date_rank(value: str | None) -> int:
-    """Return negative ordinal so newer dates rank before older dates."""
     text = clean(value)[:10]
     try:
         return -dt.date.fromisoformat(text).toordinal()
@@ -90,16 +94,12 @@ def named_species(organism_name: str) -> bool:
     tokens = name.split()
     if len(tokens) < 2:
         return False
-    if tokens[1] in {"sp.", "sp", "spp.", "spp"}:
-        return False
-    return True
+    return tokens[1] not in {"sp.", "sp", "spp.", "spp"}
 
 
 def species_key(organism_name: str) -> str:
     tokens = clean(organism_name).split()
-    if len(tokens) >= 2:
-        return " ".join(tokens[:2])
-    return clean(organism_name)
+    return " ".join(tokens[:2]) if len(tokens) >= 2 else clean(organism_name)
 
 
 def strain_label(row: Dict[str, str]) -> str:
@@ -107,18 +107,29 @@ def strain_label(row: Dict[str, str]) -> str:
 
 
 def dedup_key(row: Dict[str, str]) -> Tuple[str, str, str]:
-    """Collapse multiple assemblies representing the same named biological isolate."""
     label = norm(strain_label(row))
     if not label:
-        # Without strain/isolate metadata, BioSample is the most stable available key.
         label = norm(row.get("biosample")) or norm(row.get("accession"))
     return norm(row.get("group")), norm(row.get("organism_name")), label
+
+
+def quality_failure(row: Dict[str, str]) -> str | None:
+    completeness = to_float(row.get("checkm_completeness"), default=-1.0)
+    contamination = to_float(row.get("checkm_contamination"), default=999.0)
+    contigs = to_int(row.get("contig_count"))
+    failures: List[str] = []
+    if completeness < MIN_COMPLETENESS:
+        failures.append(f"completeness_below_{MIN_COMPLETENESS:g}")
+    if contamination > MAX_CONTAMINATION:
+        failures.append(f"contamination_above_{MAX_CONTAMINATION:g}")
+    if contigs > MAX_CONTIGS:
+        failures.append(f"contigs_above_{MAX_CONTIGS}")
+    return ";".join(failures) if failures else None
 
 
 def quality_key(row: Dict[str, str]) -> Tuple:
     level = norm(row.get("assembly_level"))
     refseq = norm(row.get("refseq_category"))
-    type_material = 0 if clean(row.get("type_material")) else 1
     completeness = to_float(row.get("checkm_completeness"), default=-1.0)
     contamination = to_float(row.get("checkm_contamination"), default=999.0)
     contigs = to_int(row.get("contig_count"))
@@ -126,7 +137,6 @@ def quality_key(row: Dict[str, str]) -> Tuple:
     return (
         ASSEMBLY_RANK.get(level, 9),
         REFSEQ_RANK.get(refseq, 2),
-        type_material,
         -completeness,
         contamination,
         contigs,
@@ -167,9 +177,14 @@ def select_group(rows: List[Dict[str, str]], target_n: int) -> Tuple[List[Dict[s
             copy["exclusion_reason"] = "unnamed_or_unclassified_species"
             excluded.append(copy)
             continue
+        failure = quality_failure(row)
+        if failure:
+            copy = dict(row)
+            copy["exclusion_reason"] = failure
+            excluded.append(copy)
+            continue
         eligible.append(row)
 
-    # Collapse duplicate assemblies of the same named isolate/strain.
     best_by_isolate: Dict[Tuple[str, str, str], Dict[str, str]] = {}
     for row in eligible:
         key = dedup_key(row)
@@ -191,7 +206,6 @@ def select_group(rows: List[Dict[str, str]], target_n: int) -> Tuple[List[Dict[s
     for species in by_species:
         by_species[species].sort(key=quality_key)
 
-    # Species are ordered by their best available assembly quality.
     species_order = sorted(by_species, key=lambda sp: (quality_key(by_species[sp][0]), sp))
 
     selected: List[Dict[str, str]] = []
@@ -205,6 +219,7 @@ def select_group(rows: List[Dict[str, str]], target_n: int) -> Tuple[List[Dict[s
                 row["species_key"] = species
                 row["selection_round"] = str(round_index + 1)
                 row["quality_rank_within_species"] = str(round_index + 1)
+                row["quality_gate"] = f"CheckM>={MIN_COMPLETENESS:g};contamination<={MAX_CONTAMINATION:g};contigs<={MAX_CONTIGS}"
                 selected.append(row)
                 added = True
                 if len(selected) >= target_n:
@@ -214,7 +229,7 @@ def select_group(rows: List[Dict[str, str]], target_n: int) -> Tuple[List[Dict[s
         round_index += 1
 
     selected_accessions = {row["accession"] for row in selected}
-    for species, candidates in by_species.items():
+    for candidates in by_species.values():
         for row in candidates:
             if row["accession"] not in selected_accessions:
                 copy = dict(row)
@@ -249,20 +264,18 @@ def main() -> None:
         selected_all.extend(selected)
         excluded_all.extend(excluded)
 
-    # Add stable display labels and global panel order.
-    order = 1
-    for row in selected_all:
+    for order, row in enumerate(selected_all, start=1):
         label = strain_label(row)
         organism = clean(row.get("organism_name"))
         row["display_label"] = f"{organism} {label}".strip()
         row["panel_order"] = str(order)
-        order += 1
 
     base_fields = list(candidates[0].keys())
     selected_fields = base_fields + [
         "species_key",
         "selection_round",
         "quality_rank_within_species",
+        "quality_gate",
         "display_label",
         "panel_order",
     ]
@@ -274,22 +287,34 @@ def main() -> None:
     with args.summary.open("w", encoding="utf-8") as handle:
         handle.write("# LAB genome panel discovery summary\n\n")
         handle.write("Selection is based only on NCBI metadata at this stage; no R-M annotation or phylogenetic marker extraction has yet been performed.\n\n")
-        handle.write("| Operational group | Candidate assemblies | Named species | Selected | Target | Complete | Chromosome | Scaffold |\n")
-        handle.write("|---|---:|---:|---:|---:|---:|---:|---:|\n")
+        handle.write(
+            f"Strict quality gate: CheckM completeness >= {MIN_COMPLETENESS:g}%, "
+            f"contamination <= {MAX_CONTAMINATION:g}%, and <= {MAX_CONTIGS} contigs.\n\n"
+        )
+        handle.write("| Operational group | Candidate assemblies | Quality-qualified | Qualified species | Selected | Target | Complete | Chromosome | Scaffold |\n")
+        handle.write("|---|---:|---:|---:|---:|---:|---:|---:|---:|\n")
         for group in group_order:
             group_candidates = grouped.get(group, [])
+            qualified = [
+                row for row in group_candidates
+                if clean(row.get("accession")).startswith("GCF_")
+                and named_species(row.get("organism_name", ""))
+                and quality_failure(row) is None
+            ]
             group_selected = [row for row in selected_all if row["group"] == group]
             levels = Counter(norm(row.get("assembly_level")) for row in group_selected)
-            species = {species_key(row["organism_name"]) for row in group_candidates if named_species(row["organism_name"])}
+            species = {species_key(row["organism_name"]) for row in qualified}
             handle.write(
-                f"| {group} | {len(group_candidates)} | {len(species)} | {len(group_selected)} | {targets[group]} | "
-                f"{levels.get('complete genome', 0) + levels.get('complete', 0)} | {levels.get('chromosome', 0)} | {levels.get('scaffold', 0)} |\n"
+                f"| {group} | {len(group_candidates)} | {len(qualified)} | {len(species)} | "
+                f"{len(group_selected)} | {targets[group]} | "
+                f"{levels.get('complete genome', 0) + levels.get('complete', 0)} | "
+                f"{levels.get('chromosome', 0)} | {levels.get('scaffold', 0)} |\n"
             )
         handle.write(f"\n**Total selected:** {len(selected_all)} assemblies.\n\n")
         handle.write("## Selection hierarchy\n\n")
-        handle.write("1. Complete genome over chromosome over scaffold.\n")
-        handle.write("2. RefSeq reference over representative over other RefSeq assemblies.\n")
-        handle.write("3. Type-material assembly where reported.\n")
+        handle.write(f"1. Apply strict quality gate: completeness >= {MIN_COMPLETENESS:g}%, contamination <= {MAX_CONTAMINATION:g}%, <= {MAX_CONTIGS} contigs.\n")
+        handle.write("2. Complete genome over chromosome over scaffold.\n")
+        handle.write("3. RefSeq reference over representative over other RefSeq assemblies.\n")
         handle.write("4. Higher CheckM completeness, lower contamination, fewer contigs.\n")
         handle.write("5. One best assembly per species first, then round-robin additional strains until the group quota is reached.\n")
         handle.write("6. Unnamed `sp.` and unclassified records are excluded from the visible panel.\n")
