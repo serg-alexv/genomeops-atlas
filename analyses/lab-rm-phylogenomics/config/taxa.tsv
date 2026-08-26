@@ -1,11 +1,11 @@
 group	query	tax_exact_match	target_n
-Lactococcus	Lactococcus	false	18
-Streptococcus_thermophilus	Streptococcus thermophilus	true	18
-Lactiplantibacillus	Lactiplantibacillus	false	18
-Lacticaseibacillus	Lacticaseibacillus	false	18
-Limosilactobacillus	Limosilactobacillus	false	18
-Lactobacillus_sensu_stricto	Lactobacillus	false	18
-Leuconostoc	Leuconostoc	false	18
-Pediococcus	Pediococcus	false	18
-Oenococcus	Oenococcus	false	18
-Weissella	Weissella	false	18
+Lactococcus	Lactococcus	false	15
+Streptococcus_thermophilus	Streptococcus thermophilus	true	15
+Lactiplantibacillus	Lactiplantibacillus	false	15
+Lacticaseibacillus	Lacticaseibacillus	false	15
+Limosilactobacillus	Limosilactobacillus	false	15
+Lactobacillus_sensu_stricto	Lactobacillus	false	15
+Leuconostoc	Leuconostoc	false	15
+Pediococcus	Pediococcus	false	15
+Oenococcus	Oenococcus	false	15
+Weissella	Weissella	false	15
