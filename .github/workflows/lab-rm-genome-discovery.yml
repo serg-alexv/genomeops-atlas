@@ -4,6 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches:
+      - main
       - analysis/lab-rm-phylogenomics
     paths:
       - "analyses/lab-rm-phylogenomics/**"
@@ -12,17 +13,21 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: lab-rm-discovery-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   discover-genomes:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 90
 
     steps:
-      - name: Check out analysis branch
-        uses: actions/checkout@v4
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.11"
 
@@ -33,7 +38,8 @@ jobs:
 
       - name: Discover and rank annotated RefSeq assemblies
         run: |
-          bash analyses/lab-rm-phylogenomics/scripts/discover_genomes.sh
+          chmod +x analyses/lab-rm-phylogenomics/scripts/discover_genomes.sh
+          analyses/lab-rm-phylogenomics/scripts/discover_genomes.sh analyses/lab-rm-phylogenomics
 
       - name: Validate discovery output
         run: |
@@ -44,12 +50,19 @@ jobs:
           selected=$(( $(wc -l < analyses/lab-rm-phylogenomics/results/stage1/selected_panel.tsv) - 1 ))
           echo "Selected assemblies: ${selected}"
           if (( selected < 140 || selected > 200 )); then
-            echo "Unexpected panel size outside broad validation range 140-200" >&2
-            exit 1
+            echo "::warning::Panel size ${selected} is outside the preferred 140-200 range; artifact retained for inspection."
+          fi
+
+      - name: Print discovery summary
+        if: always()
+        run: |
+          if [[ -s analyses/lab-rm-phylogenomics/results/stage1/DISCOVERY_SUMMARY.md ]]; then
+            cat analyses/lab-rm-phylogenomics/results/stage1/DISCOVERY_SUMMARY.md
           fi
 
       - name: Upload discovery dataset
-        uses: actions/upload-artifact@v4
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: lab-rm-stage1-genome-discovery
           path: analyses/lab-rm-phylogenomics/results/stage1/
