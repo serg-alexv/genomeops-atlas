@@ -1,3 +1,3 @@
 # Current analysis status
 
-Stage 1 metadata discovery completed once against NCBI RefSeq and retrieved 4,951 candidate assemblies. The first balanced 180-genome panel exposed quality outliers, so selection was revised to apply a strict CheckM/contig gate before balancing. The pull-request run will regenerate and validate the panel under the revised policy.
+Stage 1 metadata discovery has been refreshed against NCBI RefSeq under the merged strict gate (CheckM completeness >=95%, contamination <=5%, contigs <=100). The latest audited run selected 177 assemblies toward the 180-genome target (Oenococcus currently contributes 15 due to available RefSeq coverage) from 4,951 candidates.

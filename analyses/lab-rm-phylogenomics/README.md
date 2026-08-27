@@ -82,4 +82,4 @@ The final package is intended to contain:
 
 ## Current status
 
-Stage 1 is implemented by the branch-specific job in `.github/workflows/verify.yml` and `scripts/discover_genomes.sh`. The live NCBI discovery run is being executed through the draft pull request; selection output remains provisional until real candidate coverage is reviewed.
+Stage 1 is implemented by `.github/workflows/lab-rm-genome-discovery.yml` and `scripts/discover_genomes.sh`. The strict-gate refresh run (CheckM completeness >=95%, contamination <=5%, contigs <=100) has been executed and published as the `lab-rm-stage1-genome-discovery` artifact; current selection is 177 assemblies toward the 180-genome target.
